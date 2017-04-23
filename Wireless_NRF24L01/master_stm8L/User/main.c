@@ -9,7 +9,9 @@ uint32_t GetTimeStamp(void);
 void Init_TIM4(void);
 
 uint32_t GTimeStamp;
+uint16_t cntTimeOut;
 uint8_t flg10ms;
+
 __IO uint8_t mutex;
 
 typedef struct _data_to_send {
@@ -108,7 +110,7 @@ int main( void )
       *((data_to_send *) &buffer_to_send) = to_send;
       
       GPIO_SetBits(GPIOB,GPIO_Pin_2);
-      WaitDelay(1000);
+      //WaitDelay(1000);
       //Send the buffer
       mutex = 0;
       RF24L01_set_mode_TX();
@@ -116,36 +118,60 @@ int main( void )
       
       
        //Wait for the buffer to be sent
-      while(!mutex)
+      cntTimeOut = 0;
+      while (cntTimeOut < 10)
       {
-        
+           cntTimeOut++;
+           if(mutex!=0)
+           {
+               if (mutex != 1)
+               {
+               //The transmission failed
+               }
+               GPIO_ResetBits(GPIOB,GPIO_Pin_2); 
+               break;
+             
+           }
+           
+           WaitDelay(100);
       }
-      if (mutex != 1) {
-        //The transmission failed
-      }
-      GPIO_ResetBits(GPIOB,GPIO_Pin_2); 
-            //Wait for the response
-      /*
+
+      //Wait for the response
+      
       //TODO: implement a timeout if nothing is received after a certain amount of time
       mutex = 0;
       RF24L01_set_mode_RX();
-      while(!mutex);
-      if (mutex == 1) {
-        uint8_t recv_data[32];
-        RF24L01_read_payload(recv_data, 32);
-        received = *((data_received *) &recv_data);
-        
-        asm("nop"); //Place a breakpoint here to see memory
-      }
-      else {
-        //Something happened
-      }
-      */
-       //Let's vary the data to send
-      to_send.op1++;
-      to_send.op2 += 2;
-      WaitDelay(1000);
-       
+      cntTimeOut = 0;
+      while (cntTimeOut < 10)
+      {
+          if(!mutex)
+          {
+              cntTimeOut++;
+          }
+          else if (mutex == 1)
+          {
+             
+            uint8_t recv_data[32];
+            RF24L01_read_payload(recv_data, 32);
+            received = *((data_received *) &recv_data);
+            
+            asm("nop"); //Place a breakpoint here to see memory
+
+            //Let's vary the data to send
+            to_send.op1++;
+            to_send.op2 += 2;
+            break;
+            
+          }
+          else 
+          { 
+            //Something happened
+            break;
+          }
+
+          WaitDelay(100);
+          
+      } 
   }
 }
 

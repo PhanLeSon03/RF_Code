@@ -1,18 +1,18 @@
-"C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Libraries\src\stm8l10x_clk.c"
+"D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Libraries\src\stm8l10x_clk.c"
 -std=c99
 -ferror-limit=100
 -I
-C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Project\..\Libraries\inc
+D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Project\..\Libraries\inc
 -I
-C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Project\..\User
+D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Project\..\User
 -I
 C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\stm8\inc
 -I
 C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\stm8\inc\c
 -I
-C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Libraries\inc
+D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Libraries\inc
 -I
-C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\User
+D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\User
 -DSTM8L101=1
 -D__CHAR_BITS__=8
 -D__CHAR_MAX__=0xff

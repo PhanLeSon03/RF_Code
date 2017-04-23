@@ -25,7 +25,7 @@ if not "%~1" == "" goto debugFile
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Project\settings\test_stm8L.Debug.general.xcl" --backend -f "C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Project\settings\test_stm8L.Debug.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Project\settings\test_stm8L.Debug.general.xcl" --backend -f "D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Project\settings\test_stm8L.Debug.driver.xcl" 
 
 @echo off 
 goto end 
@@ -34,7 +34,7 @@ goto end
 
 @echo on 
 
-"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Project\settings\test_stm8L.Debug.general.xcl" "--debug_file=%~1" --backend -f "C:\Users\Admin\Documents\GitHub\RF_Code\master_stm8L\Project\settings\test_stm8L.Debug.driver.xcl" 
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 7.3\common\bin\cspybat" -f "D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Project\settings\test_stm8L.Debug.general.xcl" "--debug_file=%~1" --backend -f "D:\sop1hc\Immo_RF\Chi_Nhon\master_stm8L\Project\settings\test_stm8L.Debug.driver.xcl" 
 
 @echo off 
 :end

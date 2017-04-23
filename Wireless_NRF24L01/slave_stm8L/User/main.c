@@ -9,6 +9,7 @@ uint32_t GetTimeStamp(void);
 void Init_TIM4(void);
 
 uint32_t GTimeStamp;
+uint16_t cntTimeOut;
 uint8_t flg10ms;
 volatile uint8_t mutex;
 
@@ -98,37 +99,45 @@ int main( void )
       GPIO_SetBits(GPIOB,GPIO_Pin_2);
       mutex = 0;
       RF24L01_set_mode_RX();  
-       //Wait for the buffer to be sent
-      while(!mutex)
+
+      /* Waitfor recive */
+      cntTimeOut = 0;
+      while (cntTimeOut < 80)
       {
-        ;
-      }
-      GPIO_ResetBits(GPIOB,GPIO_Pin_2);
-      if (mutex == 1)
-      {
-        uint8_t recv_data[32];
-        RF24L01_read_payload(recv_data, 32);
-        received = *((data_received *) &recv_data);
-        
-        asm("nop"); //Place a breakpoint here to see memory
-      }
-      else
-      {
-        //Something happened
-        to_send.add  = 0;
-        to_send.div  = 0;
-        to_send.mult = 0;
-        to_send.sub  = 0;
+          if(!mutex)
+          {
+             cntTimeOut++;  
+          }
+          else if (mutex == 1)
+          {
+            uint8_t recv_data[32];
+            RF24L01_read_payload(recv_data, 32);
+            received = *((data_received *) &recv_data);
+
+            asm("nop"); //Place a breakpoint here to see memory
+            GPIO_ResetBits(GPIOB,GPIO_Pin_2);
+            WaitDelay(800);
+            break;
+          }
+          else
+          {
+            //Something happened
+            to_send.add  = 0;
+            to_send.div  = 0;
+            to_send.mult = 0;
+            to_send.sub  = 0;
+            break;
+          }
+          WaitDelay(100);
       }
       
-      uint16_t delay = 0xFFF;
-      while(delay--);
       
+      /* Encript data*/      
       to_send.add  = received.op1 + received.op2;
       to_send.sub  = received.op1 - received.op2;
       to_send.mult = received.op1 * received.op2;
       to_send.div  = received.op1 / received.op2;
-      /*
+      
       //Prepare the buffer to send from the data_to_send struct
       uint8_t buffer_to_send[32];
       uint8_t i = 0;
@@ -139,13 +148,26 @@ int main( void )
       mutex = 0;
       RF24L01_set_mode_TX();
       RF24L01_write_payload(buffer_to_send, 32);
+      
+      //Wait for the buffer to be sent
+      cntTimeOut = 0;
+      while (cntTimeOut < 8)
+      {
+           cntTimeOut++;
+           if(mutex!=0)
+           {
+               if (mutex != 1)
+               {
+               //The transmission failed
+               }
 
-      while(!mutex);
-      if (mutex != 1) {
-        //The transmission failed
+               break;
+             
+           }
+           
+           WaitDelay(100);
       }
-      */
-      WaitDelay(800);
+
       
         
   }
