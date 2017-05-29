@@ -7,11 +7,29 @@ void Init_Clock(void);
 void WaitDelay(uint16_t Delay);
 uint32_t GetTimeStamp(void);
 void Init_TIM4(void);
+void TxRF(void);
+void RxRF(void);
+
+#define RX_FI  3
+#define TX_FI  1
+#define TX_MAX 2
+#define TX_RX_LEN 0x10
+#define ST_TX 0
+#define ST_RX 1
+#define ST_WAIT 2
+#define TX 1
+#define RX 0
 
 uint32_t GTimeStamp;
 uint16_t cntTimeOut;
-uint8_t flg10ms;
+//Prepare the buffer to send from the data_to_send struct
+uint8_t buffer_to_send[TX_RX_LEN];
+uint8_t stRF = ST_RX;
+uint8_t flgRFDir;
+
 volatile uint8_t mutex;
+__IO uint8_t flg10ms;
+__IO uint8_t flg1s;
 
 typedef struct _data_to_send {
   uint32_t add;
@@ -42,6 +60,9 @@ Connections:
   PB5 -> SCK
 
 */
+#define RX_FI  3
+#define TX_FI  1
+#define TX_MAX 2
 
 int main( void )
 {
@@ -54,7 +75,7 @@ int main( void )
             GPIO_Pin_2,
             GPIO_Mode_Out_PP_High_Fast);
   
-  GPIO_SetBits(GPIOB,GPIO_Pin_2);
+  GPIO_ResetBits(GPIOB,GPIO_Pin_2);
   RF24L01_init();
 
   
@@ -65,7 +86,7 @@ int main( void )
   //uint8_t tx_addr[5] = {0x68,0x86,0x66,0x88,0x28};
   //uint8_t rx_addr[5] = {0x68,0x86,0x66,0x88,0x28};
   
-  RF24L01_setup(tx_addr, rx_addr, 12);
+  RF24L01_setup(tx_addr, rx_addr, 0);
 
   //IRQ
   GPIO_Init(
@@ -93,83 +114,86 @@ int main( void )
   //}
   //WaitDelay(100);
   
-    
-  while(1) 
+    uint8_t i = 0;
+  for (i=0; i<32; i++)
   {
-      GPIO_SetBits(GPIOB,GPIO_Pin_2);
-      mutex = 0;
-      RF24L01_set_mode_RX();  
-
-      /* Waitfor recive */
-      cntTimeOut = 0;
-      while (cntTimeOut < 80)
+      buffer_to_send[i] = 0;
+  }
+  *((data_to_send *) &buffer_to_send) = to_send;
+  
+  while(1)
+  {
+      //10ms proc
+      if (flg10ms==1)
       {
-          if(!mutex)
-          {
-             cntTimeOut++;  
-          }
-          else if (mutex == 1)
-          {
-            uint8_t recv_data[32];
-            RF24L01_read_payload(recv_data, 32);
-            received = *((data_received *) &recv_data);
+          flg10ms = 0;
 
-            asm("nop"); //Place a breakpoint here to see memory
-            GPIO_ResetBits(GPIOB,GPIO_Pin_2);
-            WaitDelay(800);
-            break;
-          }
-          else
-          {
-            //Something happened
-            to_send.add  = 0;
-            to_send.div  = 0;
-            to_send.mult = 0;
-            to_send.sub  = 0;
-            break;
-          }
-          WaitDelay(100);
       }
-      
-      
-      /* Encript data*/      
-      to_send.add  = received.op1 + received.op2;
-      to_send.sub  = received.op1 - received.op2;
-      to_send.mult = received.op1 * received.op2;
-      to_send.div  = received.op1 / received.op2;
-      
-      //Prepare the buffer to send from the data_to_send struct
-      uint8_t buffer_to_send[32];
-      uint8_t i = 0;
-      for (i=0; i<32; i++) {
-        buffer_to_send[i] = 0;
-      }
-      *((data_to_send *) &buffer_to_send) = to_send;
-      mutex = 0;
-      RF24L01_set_mode_TX();
-      RF24L01_write_payload(buffer_to_send, 32);
-      
-      //Wait for the buffer to be sent
-      cntTimeOut = 0;
-      while (cntTimeOut < 8)
+
+      //1s proc
+      if (flg1s ==1)
       {
-           cntTimeOut++;
-           if(mutex!=0)
+           flg1s = 0;
+           switch (stRF)
            {
-               if (mutex != 1)
-               {
-               //The transmission failed
-               }
+               case ST_TX: //sending
+                   
+                   TxRF();
+                   stRF = ST_WAIT;
+                   flgRFDir = TX;
+                   break;
 
-               break;
-             
+               case ST_RX: //receive
+                   
+                   RxRF();
+                   flgRFDir = RX;
+                   stRF = ST_WAIT;
+                   break;
+                   
+                case ST_WAIT:
+                    if (mutex==0)
+                    {
+                        //time-out can be implemented here
+                    }
+                    else if ((mutex==TX_FI)||(mutex==TX_MAX))
+                    {
+
+                        GPIO_ResetBits(GPIOB,GPIO_Pin_2);
+                        stRF = ST_RX;
+                        mutex=0;
+                    }
+                    else if (mutex==RX_FI)
+                    {
+                        GPIO_SetBits(GPIOB,GPIO_Pin_2);
+
+                        //Get Data
+                        uint8_t recv_data[32];
+                        RF24L01_read_payload(recv_data, 32);
+                        received = *((data_received *) &recv_data);
+
+                        asm("nop"); //Place a breakpoint here to see memory
+
+                        /* Encript data*/      
+                        to_send.add  = received.op1 + received.op2;
+                        to_send.sub  = received.op1 - received.op2;
+                        to_send.mult = received.op1 * received.op2;
+                        to_send.div  = received.op1 / received.op2;
+
+
+                        //change to next state
+                        stRF = ST_TX;
+                        mutex=0;
+                    }
+                    else
+                    {
+                        ;
+                    }
+                    break;
+               default:
+                    break;
            }
            
-           WaitDelay(100);
       }
-
-      
-        
   }
 }
 
@@ -190,11 +214,12 @@ INTERRUPT_HANDLER(EXTI0_IRQHandler, 8)
   if(RF24L01_is_data_available())
   {
     //Packet was received
-    mutex = 1;
+    mutex = 3;
     RF24L01_clear_interrupts();
     EXTI_ClearITPendingBit (EXTI_IT_Pin0);
     return;
   }
+  
   
   RF24L01_clear_interrupts();
   EXTI_ClearITPendingBit (EXTI_IT_Pin0);
@@ -271,6 +296,26 @@ INTERRUPT_HANDLER(TIM4_UPD_OVF_IRQHandler, 25)
      {
          flg10ms = 1;  
      }
+
+     if (GTimeStamp % 1000 == 0)
+     {
+         flg1s = 1;
+     }
      
      TIM4_ClearFlag(TIM4_FLAG_Update);
  }
+
+void TxRF(void)
+{
+
+    mutex = 0;
+    RF24L01_set_mode_TX();
+    RF24L01_write_payload(buffer_to_send, TX_RX_LEN);
+}
+
+void RxRF(void)
+{
+    mutex = 0;
+    RF24L01_set_mode_RX();
+
+}

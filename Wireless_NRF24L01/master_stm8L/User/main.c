@@ -7,13 +7,31 @@ void Init_Clock(void);
 void WaitDelay(uint16_t Delay);
 uint32_t GetTimeStamp(void);
 void Init_TIM4(void);
+void TxRF(void);
+void RxRF(void);
+
+#define RX_FI  3
+#define TX_FI  1
+#define TX_MAX 2
+#define TX_RX_LEN 0x10
+#define ST_TX 0
+#define ST_RX 1
+#define ST_WAIT 2
+#define TX 1
+#define RX 0
 
 uint32_t GTimeStamp;
 uint16_t cntTimeOut;
-uint8_t flg10ms;
+//Prepare the buffer to send from the data_to_send struct
+uint8_t buffer_to_send[TX_RX_LEN];
+//Get Data
+uint8_t recv_data[TX_RX_LEN];
+uint8_t stRF = ST_TX;
+uint8_t flgRFDir;
 
 __IO uint8_t mutex;
-
+__IO uint8_t flg10ms;
+__IO uint8_t flg1s;
 typedef struct _data_to_send {
   uint32_t op1;
   uint32_t op2;
@@ -42,7 +60,13 @@ Connections:
   PB6 -> MOSI
   PB5 -> SCK
 
+  LED -> PB2
+  BUTTON -> PC1
+
 */
+
+
+
 
 int main( void )
 {
@@ -57,15 +81,12 @@ int main( void )
   
   GPIO_ResetBits(GPIOB,GPIO_Pin_2);
   RF24L01_init();
-  GPIO_SetBits(GPIOB,GPIO_Pin_2);
+
   
   uint8_t tx_addr[5] = {0x04, 0xAD, 0x45, 0x98, 0x51};
   uint8_t rx_addr[5] = {0x44, 0x88, 0xBA, 0xBE, 0x42};
-  //uint8_t rx_addr[5] = {0x34,0xc3,0x10,0x10,0x00};	//Receive address	
-  //uint8_t tx_addr[5] ={0xC2,0xC2,0xC2,0xC2,0xC2};
-  //uint8_t tx_addr[5] = {0x68,0x86,0x66,0x88,0x28};
-  //uint8_t rx_addr[5] = {0x68,0x86,0x66,0x88,0x28};
-  RF24L01_setup(tx_addr, rx_addr, 12);
+
+  RF24L01_setup(tx_addr, rx_addr, 0);
   RF24L01_set_mode_TX();
   
   //IRQ
@@ -96,82 +117,98 @@ int main( void )
   //    }
   //}
   
-  GPIO_SetBits(GPIOB,GPIO_Pin_2);  
+  GPIO_SetBits(GPIOB,GPIO_Pin_2); 
+  WaitDelay(1000);
   
+  uint8_t i = 0;
+  for (i=0; i<32; i++)
+  {
+     buffer_to_send[i] = 0;
+  }
+  *((data_to_send *) &buffer_to_send) = to_send;
+    
   while(1)
   {
-      //Prepare the buffer to send from the data_to_send struct
-      uint8_t buffer_to_send[32];
-      uint8_t i = 0;
-      for (i=0; i<32; i++)
+      //10ms proc
+      if (flg10ms==1)
       {
-          buffer_to_send[i] = 0;
+          flg10ms = 0;
+
       }
-      *((data_to_send *) &buffer_to_send) = to_send;
-      
-      GPIO_SetBits(GPIOB,GPIO_Pin_2);
-      //WaitDelay(1000);
-      //Send the buffer
-      mutex = 0;
-      RF24L01_set_mode_TX();
-      RF24L01_write_payload(buffer_to_send, 32);
-      
-      
-       //Wait for the buffer to be sent
-      cntTimeOut = 0;
-      while (cntTimeOut < 10)
+
+      //1s proc
+      if (flg1s ==1)
       {
-           cntTimeOut++;
-           if(mutex!=0)
+           flg1s = 0;
+           switch (stRF)
            {
-               if (mutex != 1)
-               {
-               //The transmission failed
-               }
-               GPIO_ResetBits(GPIOB,GPIO_Pin_2); 
-               break;
-             
+               case ST_TX: //sending
+                   
+                   TxRF();
+                   stRF = ST_WAIT;
+                   flgRFDir = TX;
+                   break;
+
+               case ST_RX: //receive
+                 
+                   RxRF();
+                   flgRFDir = RX;
+                   stRF = ST_WAIT;
+                   break;
+                   
+                case ST_WAIT:
+                    if (mutex==0)
+                    {
+                        //time-out can be implemented here
+                    }
+                    else if (mutex==TX_FI)
+                    {
+
+                         GPIO_ResetBits(GPIOB,GPIO_Pin_2);
+                         stRF = ST_RX;
+
+
+                         mutex=0;
+                    }
+                    else if (mutex==RX_FI)
+                    {
+                        GPIO_SetBits(GPIOB,GPIO_Pin_2);
+
+
+                        RF24L01_read_payload(recv_data, TX_RX_LEN);
+                        received = *((data_received *) &recv_data);
+
+                        asm("nop"); //Place a breakpoint here to see memory
+
+                        //Let's vary the data to send
+                        to_send.op1++;
+                        to_send.op2 += 2;
+
+                        
+                        //change to next state
+                        //if (recv_data[0] > 0)
+                        //{
+                        //    stRF = ST_TX;
+                        //}
+                        //else
+                        //{
+                        //   stRF = ST_RX;
+                        //}
+                        stRF = ST_TX;
+                         mutex=0;
+                    }
+                    else if (mutex==TX_MAX)
+                    {
+                        GPIO_ResetBits(GPIOB,GPIO_Pin_2);
+                        stRF = ST_TX;
+                        mutex=0;
+                    }
+                    break;
+               default:
+                    break;
            }
            
-           WaitDelay(100);
       }
-
-      //Wait for the response
-      
-      //TODO: implement a timeout if nothing is received after a certain amount of time
-      mutex = 0;
-      RF24L01_set_mode_RX();
-      cntTimeOut = 0;
-      while (cntTimeOut < 10)
-      {
-          if(!mutex)
-          {
-              cntTimeOut++;
-          }
-          else if (mutex == 1)
-          {
-             
-            uint8_t recv_data[32];
-            RF24L01_read_payload(recv_data, 32);
-            received = *((data_received *) &recv_data);
-            
-            asm("nop"); //Place a breakpoint here to see memory
-
-            //Let's vary the data to send
-            to_send.op1++;
-            to_send.op2 += 2;
-            break;
-            
-          }
-          else 
-          { 
-            //Something happened
-            break;
-          }
-
-          WaitDelay(100);
-          
-      } 
   }
 }
 
@@ -192,7 +229,7 @@ INTERRUPT_HANDLER(EXTI0_IRQHandler, 8)
   if(RF24L01_is_data_available())
   {
     //Packet was received
-    mutex = 1;
+    mutex = RX_FI;
     RF24L01_clear_interrupts();
     EXTI_ClearITPendingBit (EXTI_IT_Pin0);
     return;
@@ -273,6 +310,26 @@ INTERRUPT_HANDLER(TIM4_UPD_OVF_IRQHandler, 25)
      {
          flg10ms = 1;  
      }
+
+     if (GTimeStamp % 100 == 0)
+     {
+         flg1s = 1;
+     }
      
      TIM4_ClearFlag(TIM4_FLAG_Update);
  }
+
+void TxRF(void)
+{
+
+    mutex = 0;
+    RF24L01_set_mode_TX();
+    RF24L01_write_payload(buffer_to_send, TX_RX_LEN);
+}
+
+void RxRF(void)
+{
+    mutex = 0;
+    RF24L01_set_mode_RX();
+
+}

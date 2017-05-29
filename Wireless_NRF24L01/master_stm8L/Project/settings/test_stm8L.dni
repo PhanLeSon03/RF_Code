@@ -18,7 +18,7 @@ ActionState=1
 Enabled=0
 ShowSource=1
 [DebugChecksum]
-Checksum=1445169356
+Checksum=-570025794
 [DisAssemblyWindow]
 NumStates=_ 1
 State 1=_ 1
@@ -55,7 +55,10 @@ LogEnabled=0
 GraphEnabled=0
 ShowTimeLog=1
 [Breakpoints]
-Count=0
+Bp0=_ "STD_CODE" "{$PROJ_DIR$\..\User\main.c}.232.5" 1 0 0 0 "" 0 ""
+Bp1=_ "STD_CODE" "{$PROJ_DIR$\..\User\main.c}.179.25" 1 0 0 0 "" 0 ""
+Bp2=_ "STD_CODE" "{$PROJ_DIR$\..\User\main.c}.155.20" 1 0 0 0 "" 0 ""
+Count=3
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
